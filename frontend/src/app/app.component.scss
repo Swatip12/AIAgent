@@ -1,0 +1,200 @@
+:host {
+  display: block;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.eyebrow {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: #38bdf8;
+  margin: 0 0 0.25rem 0;
+}
+
+.lede {
+  color: #cbd5e1;
+  margin: 0.5rem 0 0 0;
+  max-width: 640px;
+}
+
+.session {
+  text-align: right;
+  color: #cbd5e1;
+}
+
+.status {
+  color: #fcd34d;
+  margin-top: 0.25rem;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  background: #0b1120;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 1rem;
+  align-items: end;
+}
+
+.control label {
+  display: block;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+  margin-bottom: 0.35rem;
+}
+
+select,
+input,
+textarea {
+  width: 100%;
+  background: #111827;
+  color: #e2e8f0;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 1rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+button {
+  background: #1f2937;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border 0.2s ease;
+}
+
+button.primary {
+  background: #2563eb;
+  border-color: #3b82f6;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  background: #273449;
+}
+
+.chat,
+.checkpoint,
+.practice {
+  background: #0b1120;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.chat h3,
+.checkpoint h3,
+.practice h3 {
+  margin: 0 0 0.5rem 0;
+}
+
+.message {
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: #0f172a;
+}
+
+.message.assistant {
+  border-color: #3b82f6;
+}
+
+.role {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: #38bdf8;
+}
+
+pre {
+  white-space: pre-wrap;
+  margin: 0;
+  color: #e2e8f0;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: #0f172a;
+  border: 1px solid #1f2937;
+}
+
+.pill {
+  background: #1f2937;
+  color: #a5b4fc;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actions {
+    width: 100%;
+  }
+}
+

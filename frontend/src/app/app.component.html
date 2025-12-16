@@ -1,0 +1,81 @@
+<main class="page">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Mentor mode</p>
+      <h1>{{ title }}</h1>
+      <p class="lede">
+        Start from basics, use real-life analogies, and check understanding after each step.
+      </p>
+    </div>
+    <div class="session">
+      <div>Session: {{ sessionId ?? 'not started' }}</div>
+      <div class="status" *ngIf="status">{{ status }}</div>
+    </div>
+  </header>
+
+  <section class="controls">
+    <div class="control">
+      <label>Subject</label>
+      <select [(ngModel)]="selectedSubject">
+        @for (s of subjects; track s) {
+          <option [value]="s">{{ s }}</option>
+        }
+      </select>
+    </div>
+    <div class="control">
+      <label>Topic</label>
+      <input type="text" [(ngModel)]="topic" placeholder="e.g., Classes and Objects" />
+    </div>
+    <div class="control">
+      <label>Level</label>
+      <select [(ngModel)]="level">
+        @for (lvl of levels; track lvl) {
+          <option [value]="lvl">{{ lvl }}</option>
+        }
+      </select>
+    </div>
+    <div class="actions">
+      <button class="primary" (click)="startLesson()" [disabled]="isLoading">Start fresh</button>
+      <button (click)="sendLessonStep()" [disabled]="isLoading">Next step</button>
+      <button (click)="markConfused()" [disabled]="isLoading">I'm confused</button>
+    </div>
+  </section>
+
+  <section class="chat">
+    <h3>Lesson flow</h3>
+    <div class="message" *ngIf="messages.length === 0">
+      Click "Start fresh" to begin a guided lesson.
+    </div>
+    <div class="message" *ngFor="let m of messages" [class.assistant]="m.role === 'assistant'">
+      <div class="role">{{ m.role === 'assistant' ? 'Mentor' : 'You' }}</div>
+      <pre>{{ m.text }}</pre>
+    </div>
+  </section>
+
+  <section class="checkpoint">
+    <h3>Checkpoint answer</h3>
+    <textarea
+      rows="3"
+      [(ngModel)]="lastAnswer"
+      placeholder="Type your checkpoint answer here..."
+    ></textarea>
+    <div class="actions">
+      <button class="primary" (click)="sendLessonStep()" [disabled]="isLoading">Submit answer</button>
+      <button (click)="markConfused()" [disabled]="isLoading">Re-explain differently</button>
+    </div>
+  </section>
+
+  <section class="practice">
+    <div class="header-row">
+      <h3>Practice set</h3>
+      <button (click)="generatePractice()" [disabled]="isLoading || !sessionId">Generate practice</button>
+    </div>
+    <div *ngIf="practice.length === 0" class="message">No practice yet.</div>
+    <ul>
+      <li *ngFor="let p of practice">
+        <span class="pill">{{ p.kind }}</span>
+        <span>{{ p.question }}</span>
+      </li>
+    </ul>
+  </section>
+</main>
