@@ -119,55 +119,111 @@ def call_model(messages: List[Dict], output_kind: str = "lesson") -> str:
     if client is None:
         # Offline fallback to keep API shape working during local dev.
         if output_kind == "practice":
-            return "Q1) Concept check.\nQ2) Applied scenario.\nQ3) Code tweak."
-        return "Here is a concise teaching step with a checkpoint question."
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        temperature=0.6,
-        max_tokens=500,
-    )
-    return response.choices[0].message.content
+            return "1) What is the main concept you learned?\n2) Can you give a real-world example?\n3) Try writing a simple code example.\n4) How would you explain this to a friend?\n5) What questions do you still have?"
+        # Provide a properly formatted lesson response
+        subject = messages[-1].get("content", "").split("Subject:")[-1].split(".")[0].strip() if "Subject:" in str(messages[-1]) else "the topic"
+        topic = messages[-1].get("content", "").split("Topic:")[-1].split(".")[0].strip() if "Topic:" in str(messages[-1]) else "this concept"
+        return f"""Let's start learning about {topic} in {subject}.
+
+Think of it like learning to ride a bike - you start with the basics before moving to advanced tricks.
+
+Checkpoint: Can you explain what {topic} means in your own words?
+
+Recap: We're building understanding step by step."""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.6,
+            max_tokens=500,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        # If API call fails, return a helpful fallback
+        print(f"API Error: {e}")
+        if output_kind == "practice":
+            return "1) What is the main concept you learned?\n2) Can you give a real-world example?\n3) Try writing a simple code example.\n4) How would you explain this to a friend?\n5) What questions do you still have?"
+        return """Let's learn this concept step by step.
+
+Start with the basics - understanding the foundation is key.
+
+Checkpoint: What is one thing you understand so far?
+
+Recap: Building knowledge one step at a time."""
 
 
-def split_lesson_output(text: str) -> (str, str, str):
+def split_lesson_output(text: str) -> tuple[str, str, str]:
     # Expecting the model to return step + checkpoint + recap; use simple parsing.
     checkpoint = "Checkpoint: What is one key idea here?"
     recap = "Quick recap: key idea in one line."
-    parts = text.split("Checkpoint:", 1)
-    step_part = parts[0].strip()
-    if len(parts) > 1:
-        rest = parts[1].split("Recap:", 1)
-        checkpoint = "Checkpoint: " + rest[0].strip()
-        if len(rest) > 1:
-            recap = "Recap: " + rest[1].strip()
+    
+    # Normalize text
+    text = text.strip()
+    
+    # Try to find Checkpoint marker (case insensitive)
+    checkpoint_marker = "Checkpoint:"
+    if checkpoint_marker.lower() not in text.lower():
+        # If no checkpoint found, use the whole text as step
+        return text, checkpoint, recap
+    
+    # Split on checkpoint (case insensitive)
+    checkpoint_idx = text.lower().find(checkpoint_marker.lower())
+    step_part = text[:checkpoint_idx].strip()
+    rest = text[checkpoint_idx + len(checkpoint_marker):].strip()
+    
+    # Try to find Recap marker
+    recap_marker = "Recap:"
+    if recap_marker.lower() in rest.lower():
+        recap_idx = rest.lower().find(recap_marker.lower())
+        checkpoint = "Checkpoint: " + rest[:recap_idx].strip()
+        recap = "Recap: " + rest[recap_idx + len(recap_marker):].strip()
+    else:
+        checkpoint = "Checkpoint: " + rest.strip()
+    
+    # Ensure step_part is not empty
+    if not step_part:
+        step_part = "Let's continue learning..."
+    
     return step_part, checkpoint, recap
 
 
 @app.post("/lesson-step", response_model=LessonStepResponse)
 def lesson_step(req: LessonStepRequest):
-    session_id = get_or_create_session(req.session_id)
-    req.session_id = session_id
-
-    messages = build_messages(req)
-    messages.append(
-        {
-            "role": "user",
-            "content": "Generate a single teaching step. Include one checkpoint question prefixed with 'Checkpoint:'. End with a brief 'Recap:' line.",
-        }
-    )
     try:
+        print(f"Received lesson-step request: subject={req.subject}, topic={req.topic}, level={req.level}, session_id={req.session_id}")
+        session_id = get_or_create_session(req.session_id)
+        req.session_id = session_id
+
+        messages = build_messages(req)
+        messages.append(
+            {
+                "role": "user",
+                "content": "Generate a single teaching step. Include one checkpoint question prefixed with 'Checkpoint:'. End with a brief 'Recap:' line.",
+            }
+        )
+        
         raw = call_model(messages, output_kind="lesson")
+        print(f"Model response length: {len(raw) if raw else 0}")
+        
+        if not raw or not raw.strip():
+            raise ValueError("Empty response from model")
+
+        step, checkpoint, recap = split_lesson_output(raw)
+        print(f"Parsed - step length: {len(step)}, checkpoint: {checkpoint[:50]}...")
+
+        SESSIONS[session_id]["history"].append({"role": "assistant", "content": raw})
+
+        response = LessonStepResponse(
+            session_id=session_id, step=step, checkpoint_question=checkpoint, recap=recap
+        )
+        print(f"Returning response for session: {session_id}")
+        return response
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    step, checkpoint, recap = split_lesson_output(raw)
-
-    SESSIONS[session_id]["history"].append({"role": "assistant", "content": raw})
-
-    return LessonStepResponse(
-        session_id=session_id, step=step, checkpoint_question=checkpoint, recap=recap
-    )
+        import traceback
+        error_msg = f"Error in lesson_step: {e}"
+        print(error_msg)
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error generating lesson: {str(e)}")
 
 
 @app.post("/practice", response_model=PracticeResponse)
@@ -214,5 +270,9 @@ def practice(req: PracticeRequest):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "openai_configured": client is not None,
+        "message": "Backend is running. OpenAI API key is " + ("configured" if client else "not configured - using fallback responses")
+    }
 

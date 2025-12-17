@@ -53,7 +53,16 @@ export class AppComponent {
   isLoading = false;
   status = '';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    // Test API connection on startup
+    this.http.get(`${this.apiBase}/health`).subscribe({
+      next: () => console.log('✅ Backend API connected'),
+      error: (err) => {
+        console.error('❌ Backend API not reachable:', err);
+        this.status = 'Backend API not reachable. Make sure it\'s running on port 8000.';
+      }
+    });
+  }
 
   startLesson() {
     this.messages = [];
@@ -84,8 +93,9 @@ export class AppComponent {
         this.status = '';
       },
       error: (err) => {
+        console.error('Lesson step error:', err);
         this.isLoading = false;
-        this.status = err?.error?.detail || 'Something went wrong';
+        this.status = err?.error?.detail || err?.message || 'Something went wrong. Check console for details.';
       },
     });
   }
@@ -116,8 +126,9 @@ export class AppComponent {
         this.status = '';
       },
       error: (err) => {
+        console.error('Practice generation error:', err);
         this.isLoading = false;
-        this.status = err?.error?.detail || 'Could not fetch practice';
+        this.status = err?.error?.detail || err?.message || 'Could not fetch practice. Check console for details.';
       },
     });
   }

@@ -9,7 +9,8 @@
     </div>
     <div class="session">
       <div>Session: {{ sessionId ?? 'not started' }}</div>
-      <div class="status" *ngIf="status">{{ status }}</div>
+      <div class="status" *ngIf="status" [class.error]="status.includes('error') || status.includes('Error') || status.includes('not reachable')">{{ status }}</div>
+      <div class="loading" *ngIf="isLoading">⏳ Processing...</div>
     </div>
   </header>
 
