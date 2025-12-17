@@ -56,31 +56,30 @@ class PracticeResponse(BaseModel):
     practice: List[PracticeItem]
 
 
-SYSTEM_PROMPT = """You are an AI Teaching Assistant.
-Goal:
-- Teach concepts from scratch
-- Explain using simple language
-- Use real-life examples
-- Build logic step-by-step
+SYSTEM_PROMPT = """You are an AI Teaching Assistant focused on making complex concepts easy to understand.
 
-Teaching Style:
-- Start from basics
-- Use examples and analogies
-- Ask small checkpoint questions
-- Avoid unnecessary jargon
+Teaching Approach:
+1. Start with a simple, real-world example that illustrates the concept
+2. Explain the core idea in plain language
+3. Break down the concept into small, digestible steps
+4. Use analogies related to everyday life
+5. Provide a clear, practical example
+6. End with a simple question to check understanding
 
-Subjects:
-- Java
-- Logical Reasoning
-- Aptitude
-- Data Structures
-- Full Stack Development
+Example Format:
+[Real-world example]
+[Simple explanation]
+[Step-by-step breakdown]
+[Practical application]
+[Checkpoint question]
 
 Rules:
-- Teach like a mentor, not a textbook
-- If student is confused, re-explain differently
-- Provide practice questions at the end
-- Keep responses concise; focus on clarity.
+- Use simple, conversational language
+- Keep explanations brief and to the point
+- Avoid technical jargon
+- Focus on understanding, not memorization
+- Adapt to the student's level (beginner/intermediate)
+- If the student is confused, try a different example
 """
 
 # In-memory session store. Replace with a DB later.
@@ -153,34 +152,35 @@ Recap: Building knowledge one step at a time."""
 
 
 def split_lesson_output(text: str) -> tuple[str, str, str]:
-    # Expecting the model to return step + checkpoint + recap; use simple parsing.
+    # Initialize with default values
+    step_lines = []
     checkpoint = "Checkpoint: What is one key idea here?"
-    recap = "Quick recap: key idea in one line."
+    recap = "Recap: Quick recap: key idea in one line."
     
-    # Normalize text
-    text = text.strip()
+    # Split into lines and clean up
+    lines = [line.strip() for line in text.strip().split('\n') if line.strip()]
     
-    # Try to find Checkpoint marker (case insensitive)
-    checkpoint_marker = "Checkpoint:"
-    if checkpoint_marker.lower() not in text.lower():
-        # If no checkpoint found, use the whole text as step
-        return text, checkpoint, recap
+    # Find the first checkpoint and recap markers
+    checkpoint_idx = next((i for i, line in enumerate(lines) 
+                         if line.lower().startswith('checkpoint:')), -1)
+    recap_idx = next((i for i, line in enumerate(lines) 
+                     if line.lower().startswith('recap:')), -1)
     
-    # Split on checkpoint (case insensitive)
-    checkpoint_idx = text.lower().find(checkpoint_marker.lower())
-    step_part = text[:checkpoint_idx].strip()
-    rest = text[checkpoint_idx + len(checkpoint_marker):].strip()
+    # Extract step content (everything before checkpoint or recap)
+    step_end = min(i for i in (checkpoint_idx, recap_idx, len(lines)) if i != -1)
+    step_lines = lines[:step_end] if step_end > 0 else lines
     
-    # Try to find Recap marker
-    recap_marker = "Recap:"
-    if recap_marker.lower() in rest.lower():
-        recap_idx = rest.lower().find(recap_marker.lower())
-        checkpoint = "Checkpoint: " + rest[:recap_idx].strip()
-        recap = "Recap: " + rest[recap_idx + len(recap_marker):].strip()
-    else:
-        checkpoint = "Checkpoint: " + rest.strip()
+    # Extract checkpoint if found
+    if checkpoint_idx != -1:
+        checkpoint_end = recap_idx if (recap_idx > checkpoint_idx) else len(lines)
+        checkpoint = ' '.join(lines[checkpoint_idx:checkpoint_end])
     
-    # Ensure step_part is not empty
+    # Extract recap if found
+    if recap_idx != -1:
+        recap = ' '.join(lines[recap_idx:])
+    
+    # Join step lines and ensure it's not empty
+    step_part = '\n'.join(step_lines).strip()
     if not step_part:
         step_part = "Let's continue learning..."
     
@@ -195,35 +195,40 @@ def lesson_step(req: LessonStepRequest):
         req.session_id = session_id
 
         messages = build_messages(req)
-        messages.append(
-            {
-                "role": "user",
-                "content": "Generate a single teaching step. Include one checkpoint question prefixed with 'Checkpoint:'. End with a brief 'Recap:' line.",
-            }
-        )
+        messages.append({
+            "role": "user",
+            "content": "Please provide a clear, step-by-step explanation with a real-world example."
+        })
         
-        raw = call_model(messages, output_kind="lesson")
-        print(f"Model response length: {len(raw) if raw else 0}")
+        # Get the model's response
+        response = call_model(messages, "lesson")
         
-        if not raw or not raw.strip():
-            raise ValueError("Empty response from model")
+        # Split the response into parts
+        step, checkpoint, recap = split_lesson_output(response)
+        
+        # Format the step to be more readable
+        formatted_step = f"""{step}
 
-        step, checkpoint, recap = split_lesson_output(raw)
-        print(f"Parsed - step length: {len(step)}, checkpoint: {checkpoint[:50]}...")
+{checkpoint}
 
-        SESSIONS[session_id]["history"].append({"role": "assistant", "content": raw})
+{recap}"""
+        
+        # Store the raw response in session history
+        SESSIONS[session_id]["history"].append({"role": "assistant", "content": response})
 
-        response = LessonStepResponse(
-            session_id=session_id, step=step, checkpoint_question=checkpoint, recap=recap
-        )
-        print(f"Returning response for session: {session_id}")
-        return response
+        return {
+            "session_id": session_id,
+            "step": formatted_step,
+            "checkpoint_question": checkpoint,
+            "recap": recap
+        }
+        
     except Exception as e:
         import traceback
-        error_msg = f"Error in lesson_step: {e}"
+        error_msg = f"Error in lesson_step: {str(e)}"
         print(error_msg)
         print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Error generating lesson: {str(e)}")
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @app.post("/practice", response_model=PracticeResponse)

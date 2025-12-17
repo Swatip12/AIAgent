@@ -86,8 +86,8 @@ export class AppComponent {
     this.http.post<LessonStepResponse>(`${this.apiBase}/lesson-step`, payload).subscribe({
       next: (res) => {
         this.sessionId = res.session_id;
-        const combined = `${res.step}\n\n${res.checkpoint_question}\n${res.recap}`;
-        this.messages = [...this.messages, { role: 'assistant', text: combined }];
+        // Only add the step content, as it already includes the checkpoint and recap
+        this.messages = [...this.messages, { role: 'assistant', text: res.step }];
         this.lastAnswer = '';
         this.isLoading = false;
         this.status = '';
